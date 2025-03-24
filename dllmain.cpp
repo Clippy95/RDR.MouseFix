@@ -1,4 +1,5 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
+#define MINI_CASE_SENSITIVE
 #include "pch.h"
 #include "third_party/ModUtils/Patterns.h"
 #include "third_party/ModUtils/MemoryMgr.h"
@@ -9,6 +10,7 @@
 #include <thread>
 #include <safetyhook.hpp>
 
+#include "IniReader.h"
 uintptr_t camera_pointer;
 
 uintptr_t ReadPointer(uintptr_t baseAddress, const std::vector<uintptr_t>& offsets) {
@@ -29,7 +31,7 @@ uintptr_t ReadPointer(uintptr_t baseAddress, const std::vector<uintptr_t>& offse
     return address;
 }
 
-#define DEBUG 1
+
 #if DEBUG
 void OpenConsole()
 {
@@ -51,15 +53,16 @@ void OpenConsole()
 SafetyHookMid cover_sens_hook;
 
 uintptr_t sensaddr;
+volatile float cover_sens_fix_multiplier = 2.f;
 SAFETYHOOK_NOINLINE void cover_sens_MID(safetyhook::Context64& ctx) {
-    ctx.xmm7.f32[0] *= 2.f;
+    ctx.xmm7.f32[0] *= cover_sens_fix_multiplier;
 
     uintptr_t* camera_ptr = (uintptr_t*)ctx.rax;
     //uintptr_t bool_ptr = ReadPointer(camera_ptr, { 0x28,0x620,0x30,0x8,0x2f0});
     printf("%p \n", camera_ptr);
 }
 
-void createHooks() {
+void fix_halved_cover_sens() {
     auto pattern = hook::pattern("F3 0F 59 3D ? ? ? ? F3 0F 10 0D");
     cover_sens_hook = safetyhook::create_mid(pattern.get_first<void>(0), &cover_sens_MID);
     //pattern = hook::pattern("44 65 62 75 67 4B 65");
@@ -86,7 +89,7 @@ SAFETYHOOK_NOINLINE void cover_invert_midfix(safetyhook::Context64& ctx) {
     }
 }
 
-void invert_fixes() {
+void fix_cover_invert() {
     auto pattern = hook::pattern("48 8B 05 ? ? ? ? F3 0F 10 05 ? ? ? ? 48 8B 48 ? F3 0F 10 89 ? ? ? ? E8 ? ? ? ? 8B 05 ? ? ? ? 0F 28 F0 F3 0F 59 35 ? ? ? ? F7 D8 66 0F 6E F8");
     if (!pattern.empty()) {
         uint32_t camera_ptr_offset = *pattern.get_first<uint32_t>(3);
@@ -101,11 +104,7 @@ void invert_fixes() {
     if(!pattern.empty())
     cover_invert_fix = safetyhook::create_mid(pattern.get_first<void>(0),&cover_invert_midfix);
 }
-void fix_cover_mouse() {
-    OpenConsole();
-    std::this_thread::sleep_for(std::chrono::seconds(5));
-    invert_fixes();
-    createHooks();
+void fix_cover_clamping_mouse() {
     // Maybe use kananlib to to get "@GENERIC.TARGET" instead? this should suffice though imo.
     auto start = hook::pattern("F3 0F 5C C1 41 0F 2F C1 72 ? 0F 28 D7");
     auto jump = hook::pattern("F3 44 0F 58 87 ? ? ? ? F3 0F 10 0D");
@@ -123,6 +122,21 @@ void fix_cover_mouse() {
         printf("RDR.MouseFix pattern scan failed. \n");
 }
 
+void init() {
+    //OpenConsole();
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+    CIniReader ini;
+    bool fixMouseCoverSensitivity = ini.ReadBoolean("Fixes", "FixMouseCoverSensitivity", true);
+    bool fixInvertOptionForMouseCover = ini.ReadBoolean("Fixes", "FixInvertOptionForMouseCover", false);
+    if(ini.ReadFloat("Settings", "cover_sens_fix_multiplier", 2.0f) >= 0.1f)
+    cover_sens_fix_multiplier = ini.ReadFloat("Settings", "cover_sens_fix_multiplier", 2.0f);
+    fix_cover_clamping_mouse();
+    if(fixMouseCoverSensitivity)
+    fix_halved_cover_sens();
+    if(fixInvertOptionForMouseCover)
+    fix_cover_invert();
+}
+
 std::thread startitUp;
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
@@ -132,8 +146,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH: {
-        //fix_cover_mouse();
-        startitUp = std::thread(fix_cover_mouse);
+        startitUp = std::thread(init);
         startitUp.detach();
         break;
     }
