@@ -5,9 +5,9 @@ script comes in .asi format.
 Installation: Drag and Drop to game's directory, ensuring you have some type of an ASI loader.
 
 The mod IS NOT reliant on any ScriptHook/RedHook.
-If using RedHook
-AllowASIPluginsLoading=true
-within RedHook.ini if you're using RedHook and it should function fine.
+If using RedHook set
+`AllowASIPluginsLoading=true`
+within RedHook.ini it should function fine.
 
 - Clamping of X-axis's mouse while in cover is automatically patched out.
 ### INI config:
