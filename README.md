@@ -2,15 +2,15 @@
 This is a simple fix to mouse getting clamped while in cover.
 
 script comes in .asi format.
-Installation: Drag and Drop to game's directory, ensuring you have some type of an ASI loader.
-
+# Installation: 
 The mod IS NOT reliant on any ScriptHook/RedHook.
-If using RedHook set
-`AllowASIPluginsLoading=true`
-within RedHook.ini it should function fine.
+
+Drag and Drop to game's directory, ensuring you have some type of an [ASI loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases) installed, 
+
+Otherwise this works with Redhook with the `AllowASIPluginsLoading=true` option set in RedHook.ini
 
 - Clamping of X-axis's mouse while in cover is automatically patched out.
-### INI config:
+# INI config:
 
 
 - FixMouseCoverSensitivity (Applies the cover_sens_fix_multiplier to mouse X delta while in cover.)
